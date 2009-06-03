@@ -26,4 +26,4 @@ requires:
 resources:
   license: http://dev.perl.org/licenses/
   repository: git://github.com/miyagawa/File-Spotlight.git
-version: 0.02
+version: 0.03
