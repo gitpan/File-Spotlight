@@ -2,10 +2,11 @@ package File::Spotlight;
 
 use strict;
 use 5.008_001;
-our $VERSION = '0.04';
+our $VERSION = '0.05';
 
 use Carp;
-use String::ShellQuote;
+use Mac::Spotlight::MDQuery ':constants';
+use Mac::Spotlight::MDItem  ':constants';
 use Scalar::Util qw(blessed);
 
 sub new {
@@ -35,7 +36,7 @@ sub init {
 
     my $query = $plist->{RawQuery};
        $query = _get_value($query) if blessed $query;
-    my @search_paths = map $self->_transform_path($_), @{ $plist->{SearchCriteria}{FXScopeArrayOfPaths} || [] };
+    my @search_paths = @{ $plist->{SearchCriteria}{FXScopeArrayOfPaths} || [] };
 
     $self->{query} = $query;
     $self->{search_paths} = \@search_paths;
@@ -51,6 +52,7 @@ sub list {
 
     my @files;
     for my $path (@{$self->{search_paths}}) {
+        $path = _get_value($path) if blessed $path;
         push @files, $self->_run_mdfind($path, $self->{query});
     }
 
@@ -71,25 +73,29 @@ sub parse_plist {
 sub _run_mdfind {
     my($self, $path, $query) = @_;
 
-    my $cmd = 'mdfind -onlyin ' . shell_quote($path) . ' ' . shell_quote($query);
+    my $mq = Mac::Spotlight::MDQuery->new($query);
+    $mq->setScope( $self->_scope($path) );
+    $mq->execute;
+    $mq->stop;
 
     my @files;
-    for my $file (grep length, split /\n/, qx($cmd)) {
-        chomp;
-        push @files, $file;
+    for my $result ($mq->getResults) {
+        push @files, $result->get(kMDItemPath);
     }
 
     return @files;
 }
 
-sub _transform_path {
-    my($self, $path) = @_;
-    $path = _get_value($path) if blessed $path;
+# string => constant
+my %scope = (
+   kMDQueryScopeHome     => kMDQueryScopeHome,
+   kMDQueryScopeComputer => kMDQueryScopeComputer,
+   kMDQueryScopeNetwork  => kMDQueryScopeNetwork,
+);
 
-    return $ENV{HOME} if $path eq 'kMDQueryScopeHome';
-    return "/"        if $path eq 'kMDQueryScopeComputer';
-
-    return $path;
+sub _scope {
+    my($self, $str) = @_;
+    $scope{$str};
 }
 
 my %decode = (amp => '&', quot => '"', lt => '<', gt => '>');
@@ -128,8 +134,8 @@ File::Spotlight - List files from Smart Folder by reading .savedSearch files
 =head1 DESCRIPTION
 
 File::Spotlight is a simple module to parse I<.savedSearch> Smart
-Folder definition and get the result by executing the Spotlight query
-by C<mdfind> command.
+Folder definition, run the query and get the results with OS X
+Spotlight binding via Mac::Spotlight.
 
 This is a low-level module to open and execute the saved search plist
 files. In your application you might better wrap or integrate this
@@ -167,6 +173,6 @@ it under the same terms as Perl itself.
 
 =head1 SEE ALSO
 
-L<http://www.macosxhints.com/dlfiles/spotlightls.txt>
+L<Mac::Spotlight::MDQuery> L<http://www.macosxhints.com/dlfiles/spotlightls.txt>
 
 =cut

@@ -21,9 +21,10 @@ no_index:
     - xt
 requires:
   Filter::Util::Call: 0
+  Mac::Spotlight::MDQuery: 0.02
   Mac::Tie::PList: 0
   perl: 5.8.1
 resources:
   license: http://dev.perl.org/licenses/
   repository: git://github.com/miyagawa/File-Spotlight.git
-version: 0.04
+version: 0.05
